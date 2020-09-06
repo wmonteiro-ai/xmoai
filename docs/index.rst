@@ -1,4 +1,16 @@
-# xMOAI 🗿: Multiobjective Optimization in Explainable Artificial Intelligence
+.. xMOAI documentation master file, created by
+   sphinx-quickstart on Sat Sep  5 14:07:35 2020.
+   You can adapt this file completely to your liking, but it should at least
+   contain the root `toctree` directive.
+
+   https://sphinx-rtd-tutorial.readthedocs.io/en/latest/build-the-docs.htm
+
+.. figure:: moai.png
+  :width: 100
+  :alt: xMOAI Logo
+
+Welcome to xMOAI's documentation!
+=================================
 
 xMOAI is an open-source package implementing Explainable Artificial Intelligence (XAI) using Multiobjective Optimization (MOO). It is capable of generating
 a large number of counterfactuals in datasets with several attributes - most of them immutable or very constrained. It supports both regression or classification
@@ -6,10 +18,12 @@ problems. For classification problems, it does support both problems with traine
 the predicted class. It was tested throughly with trained models in scikit-learn, XGBoost, LightGBM and Tensorflow. In practice, it works with any model that exposes
 an output similar to scikit-learn or Tensorflow `predict` methods.
 
-## Usage
+Example:
 
-```python
-import numpy as np
+.. code-block:: python
+    :linenos:
+
+    import numpy as np
 
     from xmoai.setup.configure import generate_counterfactuals_classification_proba
 
@@ -57,8 +71,9 @@ import numpy as np
                               categorical_columns, integer_columns, n_gen=20,
                               pop_size=30, max_changed_vars=3, verbose=False, 
                               seed=random_state)
-```
-## Features
+
+Features
+========
 
 The documentation as well as the code are part of an ongoing research. Currently, it does support:
 
@@ -81,10 +96,32 @@ It does not support at the present moment:
 * Models available in hosted servers (i.e. with a REST API endpoint)
 * Multiple allowed intervals for a single attribute (e.g. for a single column, instead of a range of -10 to +20, two ranges of -10 to 0 and +10 to +20).
 
-## Contributing
-Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
+Examples
+========
 
-Please make sure to update tests as appropriate.
+Check out the xMOAI-examples repository for examples using different frameworks available in Python such as LightGBM, XGBoost, scikit-learn and Tensorflow.
 
-## License
-[MIT](https://choosealicense.com/licenses/mit/)
+Indices and tables
+==================
+
+* :ref:`genindex`
+* :ref:`modindex`
+* :ref:`search`
+
+Disclaimer
+==========
+Logo made by `Freepik` (http://www.freepik.com/) from https://www.flaticon.com.
+
+.. _Freepik: http://www.freepik.com/
+
+Modules
+=======
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Contents:
+
+   source/xmoai
+   source/xmoai.problems
+   source/xmoai.setup
+
