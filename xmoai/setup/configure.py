@@ -21,6 +21,8 @@ from xmoai.problems.xMOAIProblem import RegressionProblem, \
 from xmoai.problems.xMOAIRepair import xMOAIRepair
 from xmoai.problems.objectives import num_objectives
 
+from topsis import topsis
+
 import numpy as np
 from random import randint
 
@@ -42,8 +44,9 @@ def get_nondominated_solutions(X_current, res):
         of generating each counterfactual.
     :rtype: np.array, np.array, np.array
     """
-    F = np.empty([0, 3])
+    F = np.empty([0, num_objectives])
     X = np.empty([0, X_current.flatten().shape[0]])
+        
     algorithm = np.empty([0, 1])
     for result in res:
         if res[result].F is None:
@@ -65,7 +68,16 @@ def get_nondominated_solutions(X_current, res):
     X = np.delete(X, dominated_indexes, axis=0)
     algorithm = np.delete(algorithm, dominated_indexes, axis=0)
     
-    return F, X, algorithm
+    # filtering the best candidates through TOPSIS
+    topsis_weights = [1/num_objectives]*num_objectives
+    topsis_cost = [0]*num_objectives
+    topsis_count_cf = int(F.shape[0]/2)
+    
+    decision = topsis(F, topsis_weights, topsis_cost)
+    decision.calc()
+    best_indexes = np.argsort(decision.C)[-topsis_count_cf:]
+    
+    return F.iloc[best_indexes], X.iloc[best_indexes], algorithm
 
 def get_algorithms(X_current, max_changed_vars, categorical_columns, \
                    upper_bounds, lower_bounds, immutable_column_indexes, \

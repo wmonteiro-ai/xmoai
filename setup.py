@@ -36,5 +36,6 @@ setuptools.setup(
     python_requires='>=3.6',
     install_requires=['pymoo>=0.3.0',
                       'numpy>=1.16.0',
-                      'gower>=0.0.5']
+                      'gower>=0.0.5',
+                      'topsis-jamesfallon>=0.2.3']
 )
