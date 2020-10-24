@@ -8,7 +8,7 @@ Created on Sat Jul 11 14:18:52 2020
 
 
 import setuptools
-from pymoo import __version__
+from xmoai import __version__
 
 __name__ = 'xmoai'
 __author__ = 'Wellington R Monteiro'
