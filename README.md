@@ -86,5 +86,8 @@ Pull requests are welcome. For major changes, please open an issue first to disc
 
 Please make sure to update tests as appropriate.
 
+## Paper
+Preprint available in https://doi.org/10.13140/RG.2.2.30680.52480
+
 ## License
 [MIT](https://choosealicense.com/licenses/mit/)
