@@ -1,5 +1,7 @@
 # xMOAI 🗿: Multiobjective Optimization in Explainable Artificial Intelligence
 [![Documentation Status](https://readthedocs.org/projects/xmoai/badge/?version=latest)](https://xmoai.readthedocs.io/en/latest/?badge=latest)
+https://img.shields.io/pypi/wheel/xmoai
+https://img.shields.io/pypi/v/xmoai
 
 xMOAI is an open-source package implementing Explainable Artificial Intelligence (XAI) using Multiobjective Optimization (MOO). It is capable of generating
 a large number of counterfactuals in datasets with several attributes - most of them immutable or very constrained. It supports both regression or classification
