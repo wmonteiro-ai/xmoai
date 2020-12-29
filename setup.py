@@ -22,7 +22,7 @@ setuptools.setup(
     name=__name__, # Replace with your own username
     version=__version__,
     author=__author__,
-    author_email="NA",
+    author_email="wellington.r.monteiro@gmail.com",
     description="eXplainable Artificial Intelligence using Multiobjective Optimization",
     long_description=long_description,
     long_description_content_type="text/markdown",

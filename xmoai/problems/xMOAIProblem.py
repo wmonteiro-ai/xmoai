@@ -8,10 +8,10 @@ from xmoai.problems.restrictions import *
 #https://pymoo.org/misc/constraint_handling.html
 
 class xMOAIProblem(Problem):
-    """Defines the multiobjective problem to be solved by xMOAI. The 
-    problem may be a regression or a classification problem. This class
-    must not be called directly. Instead, please use the methods provided
-    in the "configure.py" file.
+    """Defines the multiobjective problem to be solved by xMOAI in order
+    to generate counterfactuals. The problem may be a regression or a
+    classification problem. This class must not be called directly.
+    Instead, please use the methods provided in the "configure.py" file.
     """
     
     def __init__(self, X_current, y_desired, upper_bounds, lower_bounds, \
