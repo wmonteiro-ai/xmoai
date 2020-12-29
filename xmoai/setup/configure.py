@@ -77,7 +77,7 @@ def get_nondominated_solutions(X_current, res):
     decision.calc()
     best_indexes = np.argsort(decision.C)[-topsis_count_cf:]
     
-    return F.iloc[best_indexes], X.iloc[best_indexes], algorithm
+    return F[best_indexes], X[best_indexes], algorithm
 
 def get_algorithms(X_current, max_changed_vars, categorical_columns, \
                    upper_bounds, lower_bounds, immutable_column_indexes, \
