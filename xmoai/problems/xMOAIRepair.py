@@ -7,10 +7,13 @@ Created on Thu Jul  2 21:36:28 2020
 
 import random
 import numpy as np
-from pymoo.model.repair import Repair
+from pymoo.core.repair import Repair
+from scipy.spatial.distance import cdist
 
 class xMOAIRepair(Repair):
-    def __init__(self, X_current, max_changed_vars, categorical_columns,
+    def __init__(self, X_current, max_changed_vars,
+                 categorical_columns_label_encoder,
+                 categorical_columns_one_hot_encoder,
                  integer_columns, immutable_column_indexes):
         """Class constructor.
         
@@ -21,12 +24,17 @@ class xMOAIRepair(Repair):
         :param max_changed_vars: the maximum number of attributes to be
             modified
         :type max_changed_vars: Integer
-        :param categorical_columns: dictionary containing the categorical columns
-            and their allowed values. The keys are the i-th position of the indexes
-            and the values are the allowed categories. The minimum and maximum categories
-            must respect the values in lower_bounds and upper_bounds since this variable
+        :param categorical_columns_label_encoder: dictionary containing the label-encoded
+            categorical columns and their allowed values. The keys are the i-th position 
+            of the indexes and the values are the allowed categories. The minimum and maximum
+            categories must respect the values in lower_bounds and upper_bounds since this variable
             is called after it in code.
-        :type categorical_columns: dict
+        :type categorical_columns_label_encoder: dict
+        :param categorical_columns_one_hot_encoder: list of lists containing the one-hot encoded
+            categorical columns. Each list inside this list contains the i-th positions of a given
+            one-hot encoded column. Example: if a column was encoded into three columns, 
+            the i-th positions of these columns are encoded into a list.
+        :type categorical_columns_one_hot_encoder: numpy.array
         :param integer_columns: lists the columns that allows only integer values.
             It is used by xMOAI in rounding operations.
         :type integer_columns: numpy.array
@@ -34,10 +42,18 @@ class xMOAIRepair(Repair):
             be modified.
         :type immutable_column_index: numpy.array
         """
-        self.X_current = X_current.flatten()
+        
+        if categorical_columns_label_encoder is None:
+            categorical_columns_label_encoder = {}
+            
+        if categorical_columns_one_hot_encoder is None:
+            categorical_columns_one_hot_encoder = np.array([])
+            
+        self.X_current = X_current.values
         self.n_var = self.X_current.shape[0]
         self.max_changed_vars = max_changed_vars
-        self.categorical_columns = categorical_columns
+        self.categorical_columns_label_encoder = categorical_columns_label_encoder
+        self.categorical_columns_one_hot_encoder = categorical_columns_one_hot_encoder
         self.integer_columns = integer_columns
         self.immutable_column_indexes = immutable_column_indexes
     
@@ -58,12 +74,20 @@ class xMOAIRepair(Repair):
             # keeping the immutable indexes
             x[self.immutable_column_indexes] = self.X_current[self.immutable_column_indexes]
             
-            # checking categorical values
-            for col in self.categorical_columns:
-                available_values = self.categorical_columns[col]
+            # checking categorical values (label encoded)
+            for col in self.categorical_columns_label_encoder:
+                available_values = self.categorical_columns_label_encoder[col]
                 if x[col] not in available_values:
                     x[col] = available_values[np.abs(available_values-x[col]).argmin()]
                     
+            # checking categorical values (one-hot encoded)
+            for col in self.categorical_columns_one_hot_encoder:
+                num_categories = len(col)
+                encoded_categories = np.eye(num_categories)
+        
+                closest_category = np.argmin(cdist([np.round(x[col])], encoded_categories))
+                x[col] = encoded_categories[closest_category]
+                                    
             # rounding integer columns
             for col in self.integer_columns:
                 try:

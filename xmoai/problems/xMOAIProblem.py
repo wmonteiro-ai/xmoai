@@ -1,5 +1,6 @@
 import numpy as np
-from pymoo.model.problem import Problem
+import pandas as pd
+from pymoo.core.problem import Problem
 from xmoai.problems.objectives import *
 from xmoai.problems.restrictions import *
 
@@ -15,12 +16,13 @@ class xMOAIProblem(Problem):
     """
     
     def __init__(self, X_current, y_desired, upper_bounds, lower_bounds, \
-                 max_changed_vars, y_acceptable_range, categorical_columns, \
-                 integer_columns, trained_model, method_name, parallelization):
+                 max_changed_vars, y_acceptable_range, \
+                 categorical_columns_label_encoder, categorical_columns_one_hot_encoder, \
+                 integer_columns, trained_model, X_train, method_name, parallelization):
         """Class constructor.
         
         :param x_original: the original individual
-        :type x_original: numpy.array
+        :type x_original: pandas.Series
         :param y_desired: the desired value to be predicted
         :type y_desired: Object
         :param upper_bounds: the maximum values allowed per attribute. It must
@@ -39,25 +41,40 @@ class xMOAIProblem(Problem):
             regression problems it is understood as the predicted value where y_desired
             is inside this range. For classification problems it is understood as 
             the probability of being within the expected class shown in y_desired.
-        :param categorical_columns: dictionary containing the categorical columns
-            and their allowed values. The keys are the i-th position of the indexes
-            and the values are the allowed categories. The minimum and maximum categories
-            must respect the values in lower_bounds and upper_bounds since this variable
+        :param categorical_columns_label_encoder: dictionary containing the label-encoded
+            categorical columns and their allowed values. The keys are the i-th position 
+            of the indexes and the values are the allowed categories. The minimum and maximum
+            categories must respect the values in lower_bounds and upper_bounds since this variable
             is called after it in code.
-        :type categorical_columns: dict
+        :type categorical_columns_label_encoder: dict
+        :param categorical_columns_one_hot_encoder: list of lists containing the one-hot encoded
+            categorical columns. Each list inside this list contains the i-th positions of a given
+            one-hot encoded column. Example: if a column was encoded into three columns, 
+            the i-th positions of these columns are encoded into a list.
+        :type categorical_columns_one_hot_encoder: numpy.array
         :param integer_columns: lists the columns that allows only integer values.
             It is used by xMOAI in rounding operations.
         :type integer_columns: numpy.array
         :param trained_model: the machine learning trained model to be used to
             evaluate the counterfactuals.
         :type trained_model: object
+        :param X_train: the train DataFrame used to calculate the data ranges
+        :type X_train: pandas.DataFrame
         :param method_name: the method used by the machine learning model to obtain
             its predictions (e.g. `predict`, `predict_proba`).
         :type method_name: str
         :param parallelization: parallelization options used by pymoo.
         :type parallelization: Object
         """
-        self.X_current = X_current.flatten()
+        
+        if categorical_columns_label_encoder is None:
+            categorical_columns_label_encoder = {}
+            
+        if categorical_columns_one_hot_encoder is None:
+            categorical_columns_one_hot_encoder = np.array([])
+            
+        self.columns = X_current.index
+        self.X_current = X_current.values
         n_var = self.X_current.shape[0]
         
         self.model = trained_model
@@ -66,9 +83,10 @@ class xMOAIProblem(Problem):
         self.y_acceptable_range = y_acceptable_range
         
         self.max_changed_vars = max_changed_vars
-        self.categorical_columns = categorical_columns
-        self.categorical_indexes = np.array(list(categorical_columns.keys()))
-        
+        self.categorical_columns_one_hot_encoder = categorical_columns_one_hot_encoder
+        self.categorical_columns_label_encoder = categorical_columns_label_encoder
+        self.categorical_indexes = np.array(list(categorical_columns_label_encoder.keys()))
+
         self.integer_columns = integer_columns
         
         if self.categorical_indexes.shape[0] > 0:
@@ -77,6 +95,7 @@ class xMOAIProblem(Problem):
             self.numerical_indexes = np.array(range(n_var))
         
         self.method_name = method_name
+        self.ranges = (X_train.max() - X_train.min()).values
         
         super().__init__(n_var=n_var, n_obj=num_objectives, n_constr=3, \
                          xl=lower_bounds, xu=upper_bounds, \
@@ -89,13 +108,14 @@ class RegressionProblem(xMOAIProblem):
     """
     
     def __init__(self, X_current, y_desired, upper_bounds, lower_bounds, \
-                 max_changed_vars, y_acceptable_range, categorical_columns, \
-                 integer_columns, trained_model, method_name, parallelization):
+                 max_changed_vars, y_acceptable_range, \
+                 categorical_columns_label_encoder, categorical_columns_one_hot_encoder, \
+                 integer_columns, trained_model, X_train, method_name, parallelization):
         """Class constructor.
         
         
         :param x_original: the original individual
-        :type x_original: numpy.array
+        :type x_original: pandas.Series
         :param y_desired: the desired value to be predicted
         :type y_desired: Object
         :param upper_bounds: the maximum values allowed per attribute. It must
@@ -114,18 +134,25 @@ class RegressionProblem(xMOAIProblem):
             regression problems it is understood as the predicted value where y_desired
             is inside this range. For classification problems it is understood as 
             the probability of being within the expected class shown in y_desired.
-        :param categorical_columns: dictionary containing the categorical columns
-            and their allowed values. The keys are the i-th position of the indexes
-            and the values are the allowed categories. The minimum and maximum categories
-            must respect the values in lower_bounds and upper_bounds since this variable
+        :param categorical_columns_label_encoder: dictionary containing the label-encoded
+            categorical columns and their allowed values. The keys are the i-th position 
+            of the indexes and the values are the allowed categories. The minimum and maximum
+            categories must respect the values in lower_bounds and upper_bounds since this variable
             is called after it in code.
-        :type categorical_columns: dict
+        :type categorical_columns_label_encoder: dict
+        :param categorical_columns_one_hot_encoder: list of lists containing the one-hot encoded
+            categorical columns. Each list inside this list contains the i-th positions of a given
+            one-hot encoded column. Example: if a column was encoded into three columns, 
+            the i-th positions of these columns are encoded into a list.
+        :type categorical_columns_one_hot_encoder: numpy.array
         :param integer_columns: lists the columns that allows only integer values.
             It is used by xMOAI in rounding operations.
         :type integer_columns: numpy.array
         :param trained_model: the machine learning trained model to be used to
             evaluate the counterfactuals.
         :type trained_model: object
+        :param X_train: the train DataFrame used to calculate the data ranges
+        :type X_train: pandas.DataFrame
         :param method_name: the method used by the machine learning model to obtain
             its predictions (e.g. `predict`, `predict_proba`).
         :type method_name: str
@@ -134,8 +161,8 @@ class RegressionProblem(xMOAIProblem):
         """
         super().__init__(X_current, y_desired, upper_bounds, lower_bounds, \
                          max_changed_vars, y_acceptable_range, \
-                         categorical_columns, integer_columns, \
-                         trained_model, method_name, parallelization)
+                         categorical_columns_label_encoder, categorical_columns_one_hot_encoder, \
+                         integer_columns, trained_model, X_train, method_name, parallelization)
             
     def _evaluate(self, x, out, *args, **kwargs):
         """Evaluates an individual.
@@ -145,10 +172,13 @@ class RegressionProblem(xMOAIProblem):
         :param out: the evaluation output.
         :type out: dict
         """
-        f1, prediction = get_difference_target_regression(self.model, x, \
+        f1, prediction = get_difference_target_regression(self.model, \
+                                              pd.DataFrame(x, columns=self.columns), \
                                               self.y_desired, self.method_name)
-        f2 = get_difference_attributes(x, self.X_current, self.categorical_columns)
-        f3 = get_modified_attributes(x, self.X_current)
+        f2 = get_difference_attributes(x, self.X_current, self.ranges, \
+                                       self.categorical_columns_label_encoder,
+                                       self.categorical_columns_one_hot_encoder)
+        f3 = get_modified_attributes(x, self.X_current, self.categorical_columns_one_hot_encoder)
         
         g1 = get_changed_vars_threshold(f3, self.max_changed_vars)
         g2, g3 = is_prediction_in_threshold_regression(self.y_acceptable_range, \
@@ -166,13 +196,14 @@ class ClassificationProblemProbability(xMOAIProblem):
     """
     
     def __init__(self, X_current, class_column, upper_bounds, lower_bounds, \
-                 max_changed_vars, y_acceptable_range, categorical_columns, \
-                 integer_columns, trained_model, method_name, parallelization):
+                 max_changed_vars, y_acceptable_range, \
+                 categorical_columns_label_encoder, categorical_columns_one_hot_encoder, \
+                 integer_columns, trained_model, X_train, method_name, parallelization):
         """Class constructor.
         
         
         :param x_original: the original individual
-        :type x_original: numpy.array
+        :type x_original: pandas.Series
         :param y_desired: the desired value to be predicted
         :type y_desired: Object
         :param upper_bounds: the maximum values allowed per attribute. It must
@@ -191,18 +222,25 @@ class ClassificationProblemProbability(xMOAIProblem):
             regression problems it is understood as the predicted value where y_desired
             is inside this range. For classification problems it is understood as 
             the probability of being within the expected class shown in y_desired.
-        :param categorical_columns: dictionary containing the categorical columns
-            and their allowed values. The keys are the i-th position of the indexes
-            and the values are the allowed categories. The minimum and maximum categories
-            must respect the values in lower_bounds and upper_bounds since this variable
+        :param categorical_columns_label_encoder: dictionary containing the label-encoded
+            categorical columns and their allowed values. The keys are the i-th position 
+            of the indexes and the values are the allowed categories. The minimum and maximum
+            categories must respect the values in lower_bounds and upper_bounds since this variable
             is called after it in code.
-        :type categorical_columns: dict
+        :type categorical_columns_label_encoder: dict
+        :param categorical_columns_one_hot_encoder: list of lists containing the one-hot encoded
+            categorical columns. Each list inside this list contains the i-th positions of a given
+            one-hot encoded column. Example: if a column was encoded into three columns, 
+            the i-th positions of these columns are encoded into a list.
+        :type categorical_columns_one_hot_encoder: numpy.array
         :param integer_columns: lists the columns that allows only integer values.
             It is used by xMOAI in rounding operations.
         :type integer_columns: numpy.array
         :param trained_model: the machine learning trained model to be used to
             evaluate the counterfactuals.
         :type trained_model: object
+        :param X_train: the train DataFrame used to calculate the data ranges
+        :type X_train: pandas.DataFrame
         :param method_name: the method used by the machine learning model to obtain
             its predictions (e.g. `predict`, `predict_proba`).
         :type method_name: str
@@ -211,8 +249,8 @@ class ClassificationProblemProbability(xMOAIProblem):
         """
         super().__init__(X_current, class_column, upper_bounds, lower_bounds, \
                          max_changed_vars, y_acceptable_range, \
-                         categorical_columns, integer_columns, \
-                         trained_model, method_name, parallelization)
+                         categorical_columns_label_encoder, categorical_columns_one_hot_encoder, \
+                         integer_columns, trained_model, X_train, method_name, parallelization)
             
     def _evaluate(self, x, out, *args, **kwargs):
         """Evaluates an individual.
@@ -222,10 +260,13 @@ class ClassificationProblemProbability(xMOAIProblem):
         :param out: the evaluation output.
         :type out: dict
         """
-        f1, prediction = get_difference_target_classification_proba(self.model, x, \
+        f1, prediction = get_difference_target_classification_proba(self.model, \
+                                                    pd.DataFrame(x, columns=self.columns), \
                                                     self.y_desired, self.method_name)
-        f2 = get_difference_attributes(x, self.X_current, self.categorical_columns)
-        f3 = get_modified_attributes(x, self.X_current)
+        f2 = get_difference_attributes(x, self.X_current, self.ranges, \
+                                       self.categorical_columns_label_encoder,
+                                       self.categorical_columns_one_hot_encoder)
+        f3 = get_modified_attributes(x, self.X_current, self.categorical_columns_one_hot_encoder)
         
         g1 = get_changed_vars_threshold(f3, self.max_changed_vars)
         g2, g3 = is_prediction_in_threshold_classification_proba(self.y_acceptable_range, \
@@ -242,13 +283,13 @@ class ClassificationProblemSimple(xMOAIProblem):
     the methods provided in the "configure.py" file.
     """
     
-    def __init__(self, X_current, class_column, upper_bounds, lower_bounds, \
-                 max_changed_vars, categorical_columns, \
-                 integer_columns, trained_model, method_name, parallelization):
+    def __init__(self, X_current, class_column, upper_bounds, lower_bounds, max_changed_vars, \
+                 categorical_columns_label_encoder, categorical_columns_one_hot_encoder, \
+                 integer_columns, trained_model, X_train, method_name, parallelization):
         """Class constructor.
     
         :param x_original: the original individual
-        :type x_original: numpy.array
+        :type x_original: pandas.Series
         :param y_desired: the desired value to be predicted
         :type y_desired: Object
         :param upper_bounds: the maximum values allowed per attribute. It must
@@ -268,18 +309,25 @@ class ClassificationProblemSimple(xMOAIProblem):
             is inside this range. For classification problems it is understood as 
             the probability of being within the expected class shown in y_desired.
         :type y_acceptable_range: np.array
-        :param categorical_columns: dictionary containing the categorical columns
-            and their allowed values. The keys are the i-th position of the indexes
-            and the values are the allowed categories. The minimum and maximum categories
-            must respect the values in lower_bounds and upper_bounds since this variable
+        :param categorical_columns_label_encoder: dictionary containing the label-encoded
+            categorical columns and their allowed values. The keys are the i-th position 
+            of the indexes and the values are the allowed categories. The minimum and maximum
+            categories must respect the values in lower_bounds and upper_bounds since this variable
             is called after it in code.
-        :type categorical_columns: dict
+        :type categorical_columns_label_encoder: dict
+        :param categorical_columns_one_hot_encoder: list of lists containing the one-hot encoded
+            categorical columns. Each list inside this list contains the i-th positions of a given
+            one-hot encoded column. Example: if a column was encoded into three columns, 
+            the i-th positions of these columns are encoded into a list.
+        :type categorical_columns_one_hot_encoder: numpy.array
         :param integer_columns: lists the columns that allows only integer values.
             It is used by xMOAI in rounding operations.
         :type integer_columns: numpy.array
         :param trained_model: the machine learning trained model to be used to
             evaluate the counterfactuals.
         :type trained_model: object
+        :param X_train: the train DataFrame used to calculate the data ranges
+        :type X_train: pandas.DataFrame
         :param method_name: the method used by the machine learning model to obtain
             its predictions (e.g. `predict`, `predict_proba`).
         :type method_name: str
@@ -287,8 +335,9 @@ class ClassificationProblemSimple(xMOAIProblem):
         :type parallelization: Object
         """
         super().__init__(X_current, class_column, upper_bounds, lower_bounds, \
-                         max_changed_vars, None, categorical_columns, \
-                         integer_columns, trained_model, method_name, parallelization)
+                         max_changed_vars, None, \
+                         categorical_columns_label_encoder, categorical_columns_one_hot_encoder, \
+                         integer_columns, trained_model, X_train, method_name, parallelization)
             
     def _evaluate(self, x, out, *args, **kwargs):
         """Evaluates an individual.
@@ -298,9 +347,12 @@ class ClassificationProblemSimple(xMOAIProblem):
         :param out: the evaluation output.
         :type out: dict
         """
-        f1, prediction = get_difference_target_classification_simple(self.model, x, \
+        f1, prediction = get_difference_target_classification_simple(self.model, \
+                                                    pd.DataFrame(x, columns=self.columns), \
                                                     self.y_desired, self.method_name)
-        f2 = get_difference_attributes(x, self.X_current, self.categorical_columns)
+        f2 = get_difference_attributes(x, self.X_current, self.ranges, \
+                                       self.categorical_columns_label_encoder,
+                                       self.categorical_columns_one_hot_encoder)
         f3 = get_modified_attributes(x, self.X_current)
         
         g1 = get_changed_vars_threshold(f3, self.max_changed_vars)

@@ -6,9 +6,53 @@ Created on Sat Jul 11 23:58:52 2020
 @author: wmonteiro92
 """
 import numpy as np
+'''
 import gower
+'''
 
 num_objectives = 3 # number of objectives used by xMOAI
+
+def convert_single_one_hot_feature_to_label_encoded(x, x_original, col):
+    # converting one-hot encoded value of a category to an integer
+    val_original = x_original[col].dot(1 << np.arange(len(col) - 1, -1, -1))
+    x_original = np.append(x_original, val_original)
+    
+    if len(np.shape(x)) == 2:
+        val = x[:, col].dot(1 << np.arange(len(col) - 1, -1, -1))
+        x = np.append(x, np.array([val]).T, axis=1)
+    else:
+        val = x[col].dot(1 << np.arange(len(col) - 1, -1, -1))
+        x = np.append(x, val)
+        
+    return x_original, x
+    
+def convert_one_hot_to_label_encoded(x, x_original, categorical_columns_one_hot_encoder, \
+                                    cat_features=None):                            
+    if categorical_columns_one_hot_encoder is None or \
+       len(categorical_columns_one_hot_encoder) == 0:
+        if cat_features is None:
+            return x, x_original
+        else:
+            return x, x_original, cat_features
+       
+    for col in categorical_columns_one_hot_encoder:
+        x_original, x = convert_single_one_hot_feature_to_label_encoded(x, x_original, col)
+        
+        if cat_features is not None:
+            cat_features = np.append(cat_features, [True])
+    
+    # removing the one-hot encoded values and appending the integer instead
+    indexes = []
+    [indexes.extend(l) for l in categorical_columns_one_hot_encoder]
+    
+    x = np.delete(x, indexes, axis=len(np.shape(x))-1)
+    x_original = np.delete(x_original, indexes)
+    
+    if cat_features is not None:
+        cat_features = np.delete(cat_features, indexes)
+        return x, x_original, cat_features
+    else:
+        return x, x_original
 
 def get_difference_target_regression(model, x, y_desired, method='predict'):
     """Calculates the objective 1 (f1), where it attempts to minimize the 
@@ -77,7 +121,8 @@ def get_difference_target_classification_simple(model, x, y_desired,
     prediction = getattr(model, method)(x)
     return np.where(prediction==y_desired, 0, 1), prediction
 
-def get_difference_attributes(x, x_original, categorical_columns):
+def get_difference_attributes(x, x_original, ranges, categorical_columns_label_encoder,
+                              categorical_columns_one_hot_encoder):
     """Calculates the objective 2 (f2), where it attempts to minimize the 
     difference between the modified and original values through the Gower 
     distance.
@@ -86,23 +131,82 @@ def get_difference_attributes(x, x_original, categorical_columns):
     :type x: numpy.array
     :param x_original: the original individual
     :type x_original: numpy.array
-    :param categorical_columns: the categorical columns used by the dataset
-    :type categorical_columns: dict
+    :param categorical_columns_label_encoder: dictionary containing the label-encoded
+        categorical columns and their allowed values. The keys are the i-th position 
+        of the indexes and the values are the allowed categories. The minimum and maximum
+        categories must respect the values in lower_bounds and upper_bounds since this variable
+        is called after it in code.
+    :type categorical_columns_label_encoder: dict
+    :param categorical_columns_one_hot_encoder: list of lists containing the one-hot encoded
+        categorical columns. Each list inside this list contains the i-th positions of a given
+        one-hot encoded column. Example: if a column was encoded into three columns, 
+        the i-th positions of these columns are encoded into a list.
+    :type categorical_columns_one_hot_encoder: numpy.array
     
     :return: the Gower distance between x and x_original
     :rtype: np.array
     """
-    if categorical_columns==None or len(categorical_columns.keys()) == 0:
-        cat_features = np.array([False]*x_original.shape[0])
+    num_cols = x_original.shape
+    num_cols = num_cols[0] if len(num_cols) == 1 else num_cols[1]
+    
+    if categorical_columns_label_encoder is None or \
+       len(categorical_columns_label_encoder.keys()) == 0:
+        cat_features = np.array([False]*num_cols) 
     else:
-        cat_features = np.isin(np.array(range(x_original.shape[0])), 
-                               np.array([x for x in categorical_columns.keys()]))
+        cat_features = np.isin(np.array(range(num_cols)), 
+                               np.array([x for x in categorical_columns_label_encoder.keys()]))
     
-    return gower.gower_matrix(data_x=np.nan_to_num(x, nan=-2**32-1), 
-                              data_y=np.nan_to_num(x_original.reshape(1, -1), nan=-2**32-1),
-                              cat_features=cat_features).flatten()
+    # converting one-hot encoded into label-encoded in order to calculate the gower distance
+    x, x_original, cat_features = convert_one_hot_to_label_encoded(x, x_original, \
+                                                                   categorical_columns_one_hot_encoder, \
+                                                                   cat_features)
+    '''
+    if categorical_columns_one_hot_encoder is not None or \
+       len(categorical_columns_one_hot_encoder) >= 0:
+        for col in categorical_columns_one_hot_encoder:
+            # converting one-hot encoded value of a category to an integer
+            val_original = x_original[col].dot(1 << np.arange(len(col) - 1, -1, -1))
+            x_original = np.append(x_original, val_original)
+            
+            if len(np.shape(x)) == 2:
+                val = x[:, col].dot(1 << np.arange(len(col) - 1, -1, -1))
+                x = np.append(x, np.array([val]).T, axis=1)
+            else:
+                val = x[col].dot(1 << np.arange(len(col) - 1, -1, -1))
+                x = np.append(x, val)
+                    
+            cat_features = np.append(cat_features, [True])
+        
+        # removing the one-hot encoded values and appending the integer instead
+        indexes = []
+        [indexes.extend(l) for l in categorical_columns_one_hot_encoder]
+        
+        x = np.delete(x, indexes, axis=len(np.shape(x))-1)
+        x_original = np.delete(x_original, indexes)
+        cat_features = np.delete(cat_features, indexes)
+    '''
     
-def get_modified_attributes(x, x_original):
+    x = np.nan_to_num(x, nan=-2**32-1)
+    x_original = np.nan_to_num(x_original.reshape(1, -1), nan=-2**32-1)
+    
+    '''
+    norm_values = np.nan_to_num(np.linalg.norm(x, ord=1, axis=0, keepdims=True), nan=1)
+    norm_values = np.where(norm_values==0, 1, norm_values)
+    
+    x = x / norm_values
+    x_original = x_original / norm_values
+
+    return np.abs(gower.gower_matrix(data_x=x, 
+                                     data_y=x_original,
+                                     cat_features=cat_features).flatten())
+    '''
+    cat_features = np.argwhere(cat_features).flatten()
+    
+    distances = np.abs(np.repeat(x_original, len(x), axis=0) - x)/ranges
+    distances[:, cat_features] = (distances[:, cat_features]!=0).astype(int)
+    return np.mean(distances, axis=1)
+    
+def get_modified_attributes(x, x_original, categorical_columns_one_hot_encoder):
     """Calculates the objective 3 (f3), where it attempts to minimize the 
     number of modified attributes (columns).
     
@@ -110,11 +214,22 @@ def get_modified_attributes(x, x_original):
     :type x: numpy.array
     :param x_original: the original individual
     :type x_original: numpy.array
+    :param categorical_columns_one_hot_encoder: list of lists containing the one-hot encoded
+        categorical columns. Each list inside this list contains the i-th positions of a given
+        one-hot encoded column. Example: if a column was encoded into three columns, 
+        the i-th positions of these columns are encoded into a list.
+    :type categorical_columns_one_hot_encoder: numpy.array
     
     :return: the number of modified attributes for each one of the solutions 
         (rows) provided in x and compared against x_original
     :rtype: np.array
     """
+    num_cols = x_original.shape
+    num_cols = num_cols[0] if len(num_cols) == 1 else num_cols[1]
+	
     # f3: minimize the number of modified attributes
+    x, x_original = convert_one_hot_to_label_encoded(x, x_original, \
+                                                     categorical_columns_one_hot_encoder)
+    
     return np.count_nonzero(np.nan_to_num(x_original, nan=-2**32-1) - 
-                            np.nan_to_num(x, nan=-2**32-1), axis=1)
+                            np.nan_to_num(x, nan=-2**32-1), axis=1)/num_cols
